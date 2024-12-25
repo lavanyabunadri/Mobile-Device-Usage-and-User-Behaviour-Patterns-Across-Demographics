@@ -1,0 +1,249 @@
+---
+title: "Final code"
+author: "LAVANYA B"
+output: html_document
+---
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+```
+
+```{r}
+data <- read.csv("user_behavior_dataset.csv")
+head(data)
+summary(data)
+nrow(data)
+colnames(data)
+```
+
+```{r}
+# Remove duplicates
+data <- data %>% distinct()
+summary(data)
+nrow(data)
+```
+
+```{r}
+# Standardize categorical data
+# Convert `Operating System` and `Gender` columns to factor type
+data$Operating.System <- as.factor(data$Operating.System)
+data$Gender <- as.factor(data$Gender)
+
+# Standardize case
+data$Device.Model <- tolower(data$Device.Model)
+data$Operating.System <- tolower(data$Operating.System)
+data$Gender <- tolower(data$Gender)
+```
+
+```{r}
+# Remove rows with unrealistic values
+data <- data %>%
+  filter(
+    `App.Usage.Time..min.day.` >= 0 & `App.Usage.Time..min.day.` <= 1440, # max minutes in a day
+    `Screen.On.Time..hours.day.` >= 0 & `Screen.On.Time..hours.day.` <= 24, # max hours in a day
+    `Battery.Drain..mAh.day.` >= 0
+  )
+```
+
+
+```{r}
+# Remove rows with missing values
+data <- data %>%
+  drop_na()
+```
+
+```{r}
+# Convert Age and User Behavior Class to integer
+data$Age <- as.integer(data$Age)
+data$User.Behavior.Class <- as.integer(data$User.Behavior.Class)
+```
+
+```{r}
+summary(data)
+```
+
+```{r}
+head(data)
+```
+
+
+
+```{r}
+nrow(data)
+```
+
+
+```{r}
+colnames(data)
+```
+
+```{r}
+#Renaming the column names for readability
+
+data <- data %>%
+  rename(
+    User_ID = User.ID,
+    Device_Model = Device.Model,
+    Operating_System = Operating.System,
+    App_Usage_Time_Mins_Per_Day = App.Usage.Time..min.day.,
+    Screen_Time_Hours_Per_Day = Screen.On.Time..hours.day.,
+    Battery_Consumption_mAh_Per_Day = Battery.Drain..mAh.day.,
+    Number_Of_Apps_Installed = Number.of.Apps.Installed,
+    Data_Usage_MB_Per_Day = Data.Usage..MB.day.,
+    User_Behavior_Class = User.Behavior.Class
+  )
+```
+
+
+```{r}
+colnames(data)
+```
+
+#single variable graphs 
+
+```{r}
+# Bar chart for Device Model
+ggplot(data, aes(x = Device_Model)) +
+  geom_bar(fill = "lightblue") +geom_text(stat = "count", aes(label = ..count..), vjust = -0.2, color = "black") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Distribution of Device Models", x = "Device Model", y = "Count")
+
+```
+
+From the above distribution of different device models iPhone 12 and Xiaomi Mi 11 have the highest count of 146, while OnePlus 9 and Samsung Galaxy S21 have the lowest 133 users.
+
+
+```{r}
+# Pie chart for Operating System
+os_counts <- table(data$Operating_System)
+os_percentages <- round(100 * os_counts / sum(os_counts), 1)
+pie(os_counts,labels = paste0(names(os_counts), " (", os_percentages, "%)"),main = "Distribution of Operating Systems", col = colorRampPalette(c("lightblue", "skyblue"))(length(os_counts)))
+
+```
+
+The pie chart displays the distribution of operating systems, showing that Android accounts for 79.1% of the users, while iOS comprises 20.9%. 
+
+```{r}
+# Histogram for App Usage Time
+ggplot(data, aes(x = App_Usage_Time_Mins_Per_Day)) +
+  geom_histogram(binwidth = 30, color = "black", fill = "lightblue", alpha = 0.7) +
+  labs(title = "Distribution of App Usage Time per Day", x = "App Usage Time (Minutes)", y = "Frequency")
+
+
+```
+
+The histogram illustrates the distribution of daily app usage time in minutes across users, with most users spending less than 200 minutes per day. The graph spans 0 to 600 minutes, with the highest frequency in the 0-100 minute range over 60 users, while usage gradually declines beyond 200 minutes, showing occasional spikes around 400–500 minutes.
+
+#Two-variable graphs
+
+```{r}
+# Grouping ages into ranges and calculating the average screen time
+data_age_groups <- data %>%
+  mutate(Age_Group = cut(Age, breaks = seq(10, 70, by = 10), labels = paste(seq(10, 60, by = 10), seq(20, 70, by = 10), sep = "-"))) %>%
+  group_by(Age_Group) %>%
+  summarise(Avg_Screen_Time = mean(Screen_Time_Hours_Per_Day, na.rm = TRUE))
+
+# Bar graph of screen time by age categories
+ggplot(data_age_groups, aes(x = Age_Group, y = Avg_Screen_Time)) +
+  geom_bar(stat = "identity", fill = "lightblue", alpha = 0.7) +
+  geom_text(aes(label = round(Avg_Screen_Time, 2)), vjust = -0.5, color = "black") +
+  labs(title = "Average Screen Time by Age", x = "Age Group", y = "Average Screen Time (hours/day)") +
+  theme_minimal()
+
+
+```
+
+From the above graph it shows that people of all ages in this dataset use their devices for around 5 to 5.5 hours a day, with very little difference between age groups. The 50-60 age group spends slightly more time on screens, and the 20-30 group spends a bit less. These small differences suggest that age has little influence on screen time, indicating similar device usage patterns across different age categories.
+
+
+```{r}
+# Grouping data by Operating System and User Behavior Class
+grouped_data <- data %>%
+  group_by(Operating_System, User_Behavior_Class) %>%
+  summarise(Count = n())
+
+# Bar chart
+ggplot(grouped_data, aes(x = as.factor(User_Behavior_Class), y = Count, fill = Operating_System)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = Count), position = position_dodge(width = 0.9), vjust = -0.5, color = "black") + 
+  scale_fill_manual(values = c("lightblue", "skyblue"))+
+  labs(title = "Distribution of User Behavior Class by Operating System",
+       x = "User Behavior Class",
+       y = "Count of Users") +
+  theme_minimal() 
+ 
+```
+
+The bar chart illustrates the distribution of User Behavior Class by Operating System. The bars are grouped by operating systems of Android and iOS, with Android consistently having higher user counts in all behavior classes compared to iOS. For instance, Behavior Class 1 has 114 Android users and 22 iOS users, while Behavior Class 5 has 105 Android users and 31 iOS users. This chart highlights that Android users dominate across all behavior classes.
+
+
+```{r}
+# Scatterplot for Number of Apps Installed vs. Data Usage
+data$Apps_Category <- cut(data$Number_Of_Apps_Installed, 
+                          breaks = c(-Inf, 20, 50, 100, Inf), 
+                          labels = c("Low", "Medium", "High", "Very High"))
+
+ggplot(data, aes(x = Number_Of_Apps_Installed, y = Data_Usage_MB_Per_Day, 
+                 color = Apps_Category, shape = Apps_Category)) +
+  geom_point(size = 3, alpha = 0.7) +
+  scale_color_manual(values = c("blue", "lightblue", "skyblue", "darkblue")) +
+  labs(title = "Scatterplot: Number of Apps Installed vs. Data Usage",
+       x = "Number of Apps Installed",
+       y = "Data Usage (MB per Day)",
+       color = "Apps Category",
+       shape = "Apps Category") +
+  theme_minimal()
+
+```
+
+The above scatterplot describes as number of app installation increases the usage of data is gradually increasing.
+
+
+#Multi-variable graphs
+
+```{r}
+# Interaction of App Usage Time and Battery Consumption Across Age Groups
+data <- data %>%
+  mutate(Age_Group = cut(Age, breaks = seq(10, 70, by = 10), labels = paste(seq(10, 60, by = 10), seq(20, 70, by = 10), sep = "-")))
+
+ggplot(data, aes(x = App_Usage_Time_Mins_Per_Day, y = Battery_Consumption_mAh_Per_Day, color = Number_Of_Apps_Installed)) +
+  geom_point(alpha = 0.7) +
+  facet_wrap(~ Age_Group, scales = "free_y") +
+  scale_color_gradient(low = "skyblue", high = "blue") +
+  labs(
+    title = "Interaction of App Usage Time and Battery Consumption Across Age Groups",
+    x = "App Usage Time (mins/day)",
+    y = "Battery Consumption (mAh/day)",
+    color = "Number of Apps Installed"
+  ) +
+  theme_minimal()
+
+
+```
+
+It shows the relationship between App Usage Time (mins/day) and Battery Consumption (mAh/day) across age groups 10-20 to 50-60, it shows positive relationship between them, where higher app usage leads to greater battery consumption across all age groups. Older age groups of 50-60 display higher usage and consumption clusters compared to younger groups. 
+
+
+```{r}
+# Efficiency of App Usage: Battery Consumption per App by User Behavior Class
+data <- data %>%
+  mutate(Battery_Per_App = Battery_Consumption_mAh_Per_Day / Number_Of_Apps_Installed)
+
+ggplot(data, aes(x = as.factor(User_Behavior_Class), y = Battery_Per_App, fill = Gender)) +
+  geom_boxplot(alpha = 0.7) +
+  labs(
+    title = "Efficiency of App Usage: Battery Consumption per App by User Behavior Class",
+    x = "User Behavior Class",
+    y = "Battery Consumption per App (mAh)",
+    fill = "Gender"
+  ) +
+  scale_fill_manual(values = c("lightpink", "lightblue")) +
+  theme_minimal()
+
+
+```
+
+The boxplot represents the Battery Consumption per App (mAh/day) across User Behavior Classes 1 to 5, with data separated by gender between males and females. Battery consumption tends to decrease slightly across higher user behavior classes, with similar median values for both genders. Females show greater variability in classes 1 and 2, while outliers are present in all classes, indicating occasional extreme usage. This highlights the differences in app usage efficiency across behavior types and genders.
+
